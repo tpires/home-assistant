@@ -3,6 +3,8 @@
 
 import voluptuous as vol
 
+import async_timeout
+
 # import homeassistant.helpers.config_validation as cv
 from homeassistant import config_entries, core
 from homeassistant.const import (CONF_HOST, CONF_PASSWORD, CONF_PORT,
@@ -67,7 +69,8 @@ async def check_openmotics_connection(hass: core.HomeAssistant, data):
             data[CONF_PORT]
             )
     try:
-        api.get_status()
+        with async_timeout.timeout(15):
+            await hass.async_add_executor_job(api.get_status)
     except AuthenticationException as err:
         _LOGGER.error(err)
         raise InvalidAuth
