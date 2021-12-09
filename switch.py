@@ -52,7 +52,6 @@ class OpenMoticsSwitch(SwitchEntity):
         self.gateway = gateway
         self._id = switch['id']
         self._name = switch['name']
-        self._floor = switch['floor']
         self._room = switch['room']
         self._timer = None
         self._dimmer = None
@@ -62,17 +61,12 @@ class OpenMoticsSwitch(SwitchEntity):
 
     @property
     def name(self):
-        """Return the name of the light."""
+        """Return the name of the switch."""
         return self._name
 
     @property
-    def floor(self):
-        """Return the floor of the light."""
-        return self._floor
-
-    @property
     def room(self):
-        """Return the room of the light."""
+        """Return the room of the switch."""
         return self._room
 
     @property
@@ -100,7 +94,7 @@ class OpenMoticsSwitch(SwitchEntity):
 
     @property
     def available(self):
-        """If light is available."""
+        """If switch is available."""
         return self._state is not None
 
     async def async_turn_on(self, **kwargs):
@@ -134,7 +128,7 @@ class OpenMoticsSwitch(SwitchEntity):
         #{'status': 1, 'dimmer': 100, 'ctimer': 0, 'id': 66}
 
         if not output_status:
-            _LOGGER.error('Light._refresh: No responce form the controller')
+            _LOGGER.error('switch._refresh: No responce form the controller')
             return
 
         # var_dump(output_status)
