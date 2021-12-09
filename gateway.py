@@ -55,8 +55,11 @@ class OpenMoticsGateway:
         self.om_shutters = []
         self.om_can_imputs = []
         self.om_scenes = []
+        self.om_rooms = []
+        self.om_sensor_temperature = []
         self.om_outputs_status = []
         self.om_thermostats_status = []
+        self.om_sensor_temperature_status = []
 
         self.last_update_time = None
 
@@ -145,6 +148,14 @@ class OpenMoticsGateway:
     def get_om_thermostats_status(self):
         """Returns the thermostats status."""
         return self.om_thermostats_status
+
+    def get_om_rooms(self):
+        """Returns the rooms."""
+        return self.om_rooms
+
+    def get_om_sensor_temperature(self):
+        """Return the temperature sensors."""
+        return self.om_sensor_temperature
 
     def module_discover_start(self):
         """
@@ -248,6 +259,52 @@ class OpenMoticsGateway:
 
         self.om_scenes = actions
 
+        rooms = []
+        rooms_configs = self.api.get_room_configurations()
+
+        # Get the room configurations.
+        #    result:
+        #    {'success': True,
+        #    'config': [{'id': 0, 'name': 'Kitchen', 'floor': 255}, {'id': 1, 'name': 'Hall', 'floor': 255},
+        #            {'id': 2, 'name': '', 'floor': 255}, {'id': 3, 'name': '', 'floor': 255},
+        #            {'id': 4, 'name': '', 'floor': 255}, {'id': 5, 'name': '', 'floor': 255},
+        #            {'id': 6, 'name': '', 'floor': 255}, {'id': 7, 'name': '', 'floor': 255},
+        #            ]
+        #    }
+
+        success = rooms_configs['success']
+        if success is True:
+            for room in rooms_configs['config']:
+                if (room['name'] is None or room['name'] == "" or room['name'].upper() == NOT_IN_USE):
+                    continue
+                rooms.append(room)
+        else:
+            _LOGGER.error("Failed to get the room configurations")
+
+        self.om_rooms = rooms
+
+        sensors_temperature = []
+        sensors_configs = self.api.get_sensor_configurations()
+
+        # Get the sensor configurations.
+        #    result:
+        #    {'success': True,
+        #    'config': [{'id': 1, 'name': 'Kitchen', "physical_quantity": "temperature", ...},
+        #            ]
+        #    }
+
+        success = sensors_configs['success']
+        if success is True:
+            for sensor in sensors_configs['config']:
+                if (sensor['name'] is None or sensor['name'] == "" or sensor['name'].upper() == NOT_IN_USE):
+                    continue
+                if (sensor['physical_quantity'] == 'temperature'):
+                    sensors_temperature.append(sensor)
+        else:
+            _LOGGER.error("Failed to get the temperature sensors configurations")
+
+        self.om_sensor_temperature = sensors_temperature
+
         return True
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
@@ -281,9 +338,21 @@ class OpenMoticsGateway:
             for status in gts['status']:
                 thermostats_status.append(status)
         else:
-            _LOGGER.error("Failed to get the temperatures statuses")
+            _LOGGER.error("Failed to get the thermostats statuses")
 
         self.om_thermostats_status = thermostats_status
+
+        sensor_temperature_status = []
+        gsts = self.api.get_sensor_temperature_status()
+
+        success = gsts['success']
+        if success is True:
+            for temperature in gsts['status']:
+                sensor_temperature_status.append(temperature)
+        else:
+            _LOGGER.error("Failed to get the temperatures statuses")
+
+        self.om_sensor_temperature_status = sensor_temperature_status
 
         return True
 
@@ -298,6 +367,17 @@ class OpenMoticsGateway:
         _LOGGER.error("No output module found with id: %s", output_id)
         return None
 
+
+    def get_sensor_temperature_status(self, sensor_id):
+        """
+        Function to get the status of a sensor with id.
+        """
+        temperature = self.om_sensor_temperature_status[sensor_id]
+        if temperature is None:
+            _LOGGER.error("No sensor module found with id: %s", sensor_id)
+            return None
+
+        return temperature
 
 async def get_api(hass, config):
     """Create a gateway and verify authentication."""

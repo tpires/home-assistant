@@ -8,7 +8,7 @@ from homeassistant.const import STATE_OFF, STATE_ON
 from .const import (_LOGGER, DOMAIN, OPENMOTICS_MODULE_TYPE_TO_NAME,
                     OPENMOTICS_OUTPUT_TYPE_TO_NAME)
 from .gateway import get_gateway_from_config_entry
-from .util import get_key_for_word
+from .util import get_key_for_word, get_element_from_list
 
 # import homeassistant.helpers.device_registry as dr
 # from homeassistant.core import callback
@@ -26,10 +26,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     entities = []
     om_lights = []
+    om_rooms = gateway.get_om_rooms()
 
     light_type = get_key_for_word(OPENMOTICS_OUTPUT_TYPE_TO_NAME, 'light')
     for module in gateway.get_om_output_modules():
         if module['type'] == light_type:
+            module['floor'] = get_element_from_list(om_rooms, "id", module['room'])
             om_lights.append(module)
 
     if not om_lights:

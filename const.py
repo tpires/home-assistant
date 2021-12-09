@@ -19,7 +19,6 @@ to late. 28 seconds is better.
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=28)
 # MIN_TIME_BETWEEN_UPDATES = 28  # seconds
 
-
 DEFAULT_HOST = 'cloud.openmotics.com'
 DEFAULT_PORT = 443
 DEFAULT_VERIFY_SSL = False
@@ -59,5 +58,5 @@ OPENMOTICS_MODULE_TYPE_TO_NAME = {
     'L': 'Unknown'
 }
 
-SUPPORTED_PLATFORMS = ["light", "switch", "scene"]
+SUPPORTED_PLATFORMS = ["light", "switch", "scene", "sensor"]
 # SUPPORTED_PLATFORMS = ["light"]

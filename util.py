@@ -1,6 +1,14 @@
 """Validation utility functions for OpenMotics services."""
 from .const import _LOGGER
 
+def get_element_from_list(list, key, value):
+    try:
+        for l in list:
+            if l[key] == value:
+                return l
+        return None
+    except ValueError as er:
+        return None
 
 def get_key_for_word(dictionary, word):
     try:
