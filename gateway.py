@@ -57,9 +57,11 @@ class OpenMoticsGateway:
         self.om_scenes = []
         self.om_rooms = []
         self.om_sensor_temperature = []
+        self.om_sensor_humidity = []
         self.om_outputs_status = []
         self.om_thermostats_status = []
         self.om_sensor_temperature_status = []
+        self.om_sensor_humidity_status = []
 
         self.last_update_time = None
 
@@ -156,6 +158,10 @@ class OpenMoticsGateway:
     def get_om_sensor_temperature(self):
         """Return the temperature sensors."""
         return self.om_sensor_temperature
+
+    def get_om_sensor_humidity(self):
+        """Return the humidity sensors."""
+        return self.om_sensor_humidity
 
     def module_discover_start(self):
         """
@@ -284,6 +290,7 @@ class OpenMoticsGateway:
         self.om_rooms = rooms
 
         sensors_temperature = []
+        sensors_humidity= []
         sensors_configs = self.api.get_sensor_configurations()
 
         # Get the sensor configurations.
@@ -300,10 +307,13 @@ class OpenMoticsGateway:
                     continue
                 if (sensor['physical_quantity'] == 'temperature'):
                     sensors_temperature.append(sensor)
+                elif (sensor['physical_quantity'] == 'humidity'):
+                    sensors_humidity.append(sensor)
         else:
-            _LOGGER.error("Failed to get the temperature sensors configurations")
+            _LOGGER.error("Failed to get the sensors configurations")
 
         self.om_sensor_temperature = sensors_temperature
+        self.om_sensor_humidity = sensors_humidity
 
         return True
 
@@ -354,6 +364,18 @@ class OpenMoticsGateway:
 
         self.om_sensor_temperature_status = sensor_temperature_status
 
+        sensor_humidity_status = []
+        gshs = self.api.get_sensor_humidity_status()
+
+        success = gshs['success']
+        if success is True:
+            for humidity in gshs['status']:
+                sensor_humidity_status.append(humidity)
+        else:
+            _LOGGER.error("Failed to get the humidity statuses")
+
+        self.om_sensor_humidity_status = sensor_humidity_status
+
         return True
 
     def get_output_status(self, output_id):
@@ -378,6 +400,17 @@ class OpenMoticsGateway:
             return None
 
         return temperature
+
+    def get_sensor_humidity_status(self, sensor_id):
+        """
+        Function to get the status of a sensor with id.
+        """
+        humidity = self.om_sensor_humidity_status[sensor_id]
+        if humidity is None:
+            _LOGGER.error("No sensor module found with id: %s", sensor_id)
+            return None
+
+        return humidity
 
 async def get_api(hass, config):
     """Create a gateway and verify authentication."""
