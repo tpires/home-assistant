@@ -38,7 +38,6 @@ def get_gateway_from_config_entry(hass, config_entry):
     """Return gateway with a matching bridge id."""
     return hass.data[DOMAIN].get(config_entry.unique_id)
 
-
 class OpenMoticsGateway:
     """Thread safe wrapper class for openmotics python sdk."""
 
@@ -328,6 +327,8 @@ class OpenMoticsGateway:
         Can be called from within other components and will bypass throttle.
         """
 
+        _LOGGER.debug("Gateway update: begin")
+
         outputs_status = []
         gos = self.api.get_outputs_status()
 
@@ -339,6 +340,7 @@ class OpenMoticsGateway:
             _LOGGER.error("Failed to get the output statuses")
 
         self.om_outputs_status = outputs_status
+        _LOGGER.debug("Gateway update: output status %s", outputs_status)
 
         thermostats_status = []
         gts = self.api.get_thermostats_status()

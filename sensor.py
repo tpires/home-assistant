@@ -54,7 +54,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         _LOGGER.warning("No OpenMotics Temperature and Humidity Sensors added")
         return False
 
-    async_add_entities(entities)
+    async_add_entities(entities, True)
 
 class OpenMoticsSensor(SensorEntity):
     """Representation of a OpenMotics sensor."""
@@ -74,7 +74,7 @@ class OpenMoticsSensor(SensorEntity):
         self._unit = sensor['unit']
         self._value = None
 
-        self._refresh()
+        #self._refresh()
 
     @property
     def supported_features(self):
@@ -82,10 +82,10 @@ class OpenMoticsSensor(SensorEntity):
 
         return 0
 
-    # @property
-    # def should_poll(self):
-    #     """Enable polling."""
-    #     return True
+    property
+    def should_poll(self):
+        """Enable polling."""
+        return True
 
     @property
     def name(self):
@@ -150,6 +150,12 @@ class OpenMoticsTemperature(OpenMoticsSensor):
 
     def _refresh(self):
         """Refresh the state of the temperature sensor."""
+        _LOGGER.debug("Temperature._update: %s = %s",self._id, self._name)
+
+        _update = self.gateway.update
+        if _update is None:
+            _LOGGER.debug("Temperature._update: No need to update")
+
         sensor_temperature_status = self.gateway.get_sensor_temperature_status(self._id)
 
         if sensor_temperature_status is None:
@@ -165,6 +171,12 @@ class OpenMoticsHumidity(OpenMoticsSensor):
 
     def _refresh(self):
         """Refresh the state of the humidity sensor."""
+        _LOGGER.debug("Humidity._update: %s = %s",self._id, self._name)
+
+        _update = self.gateway.update
+        if _update is None:
+            _LOGGER.debug("Humidity._update: No need to update")
+
         sensor_humidity_status = self.gateway.get_sensor_humidity_status(self._id)
 
         if sensor_humidity_status is None:

@@ -17,6 +17,15 @@ from homeassistant.config_entries import \
 from homeassistant.const import (CONF_HOST, CONF_PASSWORD, CONF_PORT,
                                  CONF_USERNAME, CONF_VERIFY_SSL)
 
+from datetime import timedelta
+
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
+
 from .const import (_LOGGER, DATA_OPENMOTICS_CONFIG, DEFAULT_HOST,
                     DEFAULT_PORT, DEFAULT_VERIFY_SSL, DOMAIN,
                     SUPPORTED_PLATFORMS)
@@ -114,7 +123,39 @@ async def async_setup_entry(hass, config_entry):
 
     await hass.async_add_executor_job(gateway.module_discover_start)
 
-    await hass.async_add_executor_job(gateway.update)
+    #await hass.async_add_executor_job(gateway.update)
+
+    async def async_update_data():
+        """Fetch data from API endpoint.
+
+        This is the place to pre-process the data to lookup tables
+        so entities can quickly look up their data.
+        """
+        try:
+            # Note: asyncio.TimeoutError and aiohttp.ClientError are already
+            # handled by the data update coordinator.
+            async with async_timeout.timeout(10):
+                return await gateway.update
+        except ApiAuthError as err:
+            # Raising ConfigEntryAuthFailed will cancel future updates
+            # and start a config flow with SOURCE_REAUTH (async_step_reauth)
+            raise ConfigEntryAuthFailed from err
+        except ApiError as err:
+            raise UpdateFailed(f"Error communicating with API: {err}")
+
+    coordinator = DataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        # Name of the data. For logging purposes.
+        name="openmotics_coordinator",
+        update_method=async_update_data,
+        # Polling interval. Will only be polled if there are subscribers.
+        update_interval=timedelta(seconds=28),
+    )
+
+    await coordinator.async_config_entry_first_refresh()
+
+    hass.data[DOMAIN]['coordinator'] = coordinator
 
     for platform in SUPPORTED_PLATFORMS:
         hass.async_create_task(

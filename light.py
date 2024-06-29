@@ -5,15 +5,15 @@ from homeassistant.components.light import (ATTR_BRIGHTNESS,
                                             SUPPORT_BRIGHTNESS, LightEntity)
 from homeassistant.const import STATE_OFF, STATE_ON
 
+from typing import Final
+
 from .const import (_LOGGER, DOMAIN, OPENMOTICS_MODULE_TYPE_TO_NAME,
                     OPENMOTICS_OUTPUT_TYPE_TO_NAME)
 from .gateway import get_gateway_from_config_entry
 from .util import get_key_for_word, get_element_from_list
 
-# import homeassistant.helpers.device_registry as dr
-# from homeassistant.core import callback
-
-
+TURN_ON: Final = "turn_on"
+TURN_OFF: Final = "turn_off"
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Component doesn't support configuration through configuration.yaml."""
@@ -23,6 +23,9 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up Lights for OpenMotics Controller."""
     gateway = get_gateway_from_config_entry(hass, config_entry)
+    coordinator = hass.data[DOMAIN].get('coordinator')
+
+    _LOGGER.debug("Light: here.")
 
     entities = []
     om_lights = []
@@ -40,7 +43,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     for entity in om_lights:
         _LOGGER.debug("Adding light %s", entity)
-        entities.append(OpenMoticsLight(hass, gateway, entity))
+        entities.append(OpenMoticsLight(hass, coordinator, idx, gateway, entity) for idx, ent in enumerate(coordinator.data))
 
     if not entities:
         _LOGGER.warning("No OpenMotics Lights added")
@@ -59,12 +62,14 @@ def brightness_from_percentage(percent):
     return round((percent * 255.0) / 100.0)
 
 
-class OpenMoticsLight(LightEntity):
+class OpenMoticsLight(CoordinatorEntity, LightEntity):
     """Representation of a OpenMotics light."""
 
-    def __init__(self, hass, gateway, light):
+    def __init__(self, hass, coordinator, idx, gateway, light):
         """Initialize the light."""
+        super().__init__(coordinator)
         self._hass = hass
+        self.idx = idx
         self.gateway = gateway
         self._id = light['id']
         self._name = light['name']
@@ -75,8 +80,9 @@ class OpenMoticsLight(LightEntity):
         self._timer = None
         self._dimmer = None
         self._state = None
+        self._event = None
 
-        self._refresh()
+        #self._refresh()
 
     @property
     def supported_features(self):
@@ -87,10 +93,10 @@ class OpenMoticsLight(LightEntity):
 
         return 0
 
-    # @property
-    # def should_poll(self):
-    #     """Enable polling."""
-    #     return True
+    #@property
+    #def should_poll(self):
+    #    """Enable polling."""
+    #    return True
 
     @property
     def name(self):
@@ -115,7 +121,8 @@ class OpenMoticsLight(LightEntity):
     @property
     def is_on(self):
         """Return true if device is on."""
-        return self._state == STATE_ON
+        return self.coordinator.data[self.idx]["_state"] == STATE_ON
+        #return self._state == STATE_ON
 
     @property
     def device_info(self):
@@ -130,10 +137,10 @@ class OpenMoticsLight(LightEntity):
         }
         return info
 
-    @property
-    def available(self):
-        """If light is available."""
-        return self._state is not None
+    #@property
+    #def available(self):
+    #    """If light is available."""
+    #    return self._state is not None
 
     @property
     def brightness(self) -> int:
@@ -158,48 +165,67 @@ class OpenMoticsLight(LightEntity):
 
         self._dimmer = brightness_to_percentage(brightness)
 
+        self._event = TURN_ON
+
         sop = await self._hass.async_add_executor_job(self.gateway.api.set_output, self._id, True, self._dimmer, self._timer)
+        _LOGGER.debug("Light._turn_on %s", self._state)
         if sop['success'] is True:
             self._state = STATE_ON
         else:
             _LOGGER.error("Error setting output id %s to True", self._id)
             self._state = STATE_OFF
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
         """Turn devicee off."""
+        self._event = TURN_OFF
+
         sop = await self._hass.async_add_executor_job(self.gateway.api.set_output, self._id, False, None, None)
+        _LOGGER.debug("Light._turn_off %s", self._state)
         if sop['success'] is True:
             self._state = STATE_OFF
         else:
             _LOGGER.error("Error setting output id %s to False", self._id)
             self._state = STATE_ON
 
-    async def async_update(self):
-        """Retrieve latest state."""
-        await self._hass.async_add_executor_job(self._refresh)
+        await self.coordinator.async_request_refresh()
 
-    def _refresh(self):
-        """Refresh the state of the light."""
-        if not self.gateway.update() and self._state is not None:
-            return
+    #async def async_update(self):
+    #    """Retrieve latest state."""
+    #    await self._hass.async_add_executor_job(self._refresh)
 
-        output_status = self.gateway.get_output_status(self._id)
+    #def _refresh(self):
+    #    """Refresh the state of the light."""
+    #    _LOGGER.debug("Light._refresh: %s (%s) = %s (before)", self._name, self._id, self._state)
+
+    #    self.gateway.update
+
+    #    if self._event is not None:
+    #        _LOGGER.debug("Light._event: local event %s = %s", self._name, self._state)
+    #        self._event = None
+    #        return
+
+    #    output_status = self.gateway.get_output_status(self._id)
         # {'status': 1, 'dimmer': 100, 'ctimer': 0, 'id': 66}
 
-        if not output_status:
-            _LOGGER.error('Light._refresh: No responce form the controller')
-            return
+    #    _LOGGER.debug("Light._refresh: %s (%s) output_status = %s", self._name, self._id, output_status)
 
-        if output_status['dimmer'] is not None:
-            self._dimmer = output_status['dimmer']
+    #    if not output_status:
+    #        _LOGGER.error('Light._refresh: No response from the controller')
+    #        return
 
-        if output_status['ctimer'] is not None:
-            self._ctimer = output_status['ctimer']
+    #    if output_status['dimmer'] is not None:
+    #        self._dimmer = output_status['dimmer']
 
-        if output_status['status'] is not None:
-            if output_status['status'] == 1:
-                self._state = STATE_ON
-            else:
-                self._state = STATE_OFF
-        else:
-            self._state = None
+    #    if output_status['ctimer'] is not None:
+    #        self._ctimer = output_status['ctimer']
+
+    #    if output_status['status'] is not None:
+    #        if output_status['status'] == 1:
+    #            self._state = STATE_ON
+    #        else:
+    #            self._state = STATE_OFF
+    #    else:
+    #        self._state = None
+
+    #    _LOGGER.debug("Light._refresh: %s (%s) = %s", self._name, self._id, self._state)
